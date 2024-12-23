@@ -1,0 +1,44 @@
+name: test6
+
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  update-and-build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Xcode
+        run: |
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          sudo xcodebuild -license accept
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install cmake
+
+      - name: Update Xcode project settings
+        run: |
+          # Update the SDKROOT to use the latest macOS SDK
+          /usr/libexec/PlistBuddy -c "Set :SDKROOT macosx" fusemfs.xcodeproj/project.pbxproj
+          
+          # Update the supported architectures to include only arm64 and x86_64
+          /usr/libexec/PlistBuddy -c "Set :ARCHS '$(ARCHS_STANDARD_64_BIT)'" fusemfs.xcodeproj/project.pbxproj
+          /usr/libexec/PlistBuddy -c "Set :ONLY_ACTIVE_ARCH YES" fusemfs.xcodeproj/project.pbxproj
+
+      - name: Build Xcode project for arm64
+        run: |
+          xcodebuild -project fusemfs.xcodeproj -scheme fusemfs -configuration Release -arch arm64 build
+
+      - name: Run Tests
+        run: |
+          xcodebuild test -project fusemfs.xcodeproj -scheme fusemfs -configuration Debug -destination 'platform=macOS,arch=arm64'
